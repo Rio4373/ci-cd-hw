@@ -1,0 +1,54 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.17
+
+    - name: Cache Go modules
+      uses: actions/cache@v2
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Install dependencies
+      run: go mod download
+
+    - name: Build
+      run: go build -v ./...
+
+    - name: Test
+      run: go test -v ./...
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+    - name: Deploy to remote server
+      env:
+        HOST: ${{ secrets.REMOTE_HOST }}
+        USERNAME: ${{ secrets.REMOTE_USER }}
+        PASSWORD: ${{ secrets.REMOTE_PASSWORD }}
+      run: |
+        sshpass -p $PASSWORD ssh $USERNAME@$HOST 'bash -s' < deploy.sh
