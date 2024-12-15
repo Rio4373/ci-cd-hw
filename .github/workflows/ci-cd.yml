@@ -21,7 +21,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v3
       with:
-        go-version: 1.23
+        go-version: 1.17
 
     - name: Cache Go modules
       uses: actions/cache@v2
@@ -34,10 +34,7 @@ jobs:
     - name: Install dependencies
       run: go mod download
 
-    - name: Build
-      run: go build -v ./...
-
-    - name: Test
+    - name: Run Tests
       run: go test -v ./...
 
   deploy:
@@ -45,10 +42,20 @@ jobs:
     needs: build
 
     steps:
-    - name: Deploy to remote server
-      env:
-        HOST: ${{ secrets.REMOTE_HOST }}
-        USERNAME: ${{ secrets.REMOTE_USER }}
-        PASSWORD: ${{ secrets.REMOTE_PASSWORD }}
-      run: |
-        sshpass -p $PASSWORD ssh $USERNAME@$HOST 'bash -s' < deploy.sh
+    - uses: actions/checkout@v2
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Login to DockerHub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        push: true
+        tags: ${{ secrets.DOCKER_USERNAME }}/go-ci-cd-sample:latest
